@@ -14,34 +14,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  bool _isOnline = false;
-  bool _checkingConnection = true;
-  final SupabaseService _supabaseService = SupabaseService();
 
-  final List<Widget> _screens = [
-    const _DashboardTab(),
-    const SensorsScreen(),
-    const GpsScreen(),
-    const HistoryScreen(),
-    const StatsScreen(),
+  final List<Widget> _screens = const [
+    _DashboardTab(),
+    SensorsScreen(),
+    GpsScreen(),
+    HistoryScreen(),
+    StatsScreen(),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _checkConnection();
-  }
-
-  Future<void> _checkConnection() async {
-    setState(() => _checkingConnection = true);
-    final online = await _supabaseService.checkConnection();
-    if (mounted) {
-      setState(() {
-        _isOnline = online;
-        _checkingConnection = false;
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,12 +88,16 @@ class _DashboardTabState extends State<_DashboardTab> {
   Future<void> _check() async {
     setState(() => _checking = true);
     final ok = await _svc.checkConnection();
-    if (mounted) setState(() { _isOnline = ok; _checking = false; });
+    if (mounted) {
+      setState(() {
+        _isOnline = ok;
+        _checking = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: const Color(0xFF1565C0),
       body: SafeArea(
@@ -186,21 +170,21 @@ class _DashboardTabState extends State<_DashboardTab> {
                     ),
                     const SizedBox(height: 12),
                     // Sensores disponibles
-                    _StatusCard(
+                    const _StatusCard(
                       icon: Icons.speed,
                       iconColor: Colors.blue,
                       title: 'Acelerómetro',
                       subtitle: 'Disponible • Ejes X, Y, Z',
                     ),
                     const SizedBox(height: 12),
-                    _StatusCard(
-                      icon: Icons.360,
+                    const _StatusCard(
+                      icon: Icons.threesixty,
                       iconColor: Colors.purple,
                       title: 'Giroscopio',
                       subtitle: 'Disponible • Ejes X, Y, Z',
                     ),
                     const SizedBox(height: 12),
-                    _StatusCard(
+                    const _StatusCard(
                       icon: Icons.gps_fixed,
                       iconColor: Colors.teal,
                       title: 'GPS / Ubicación',
@@ -210,26 +194,35 @@ class _DashboardTabState extends State<_DashboardTab> {
                     // Info de la app
                     Card(
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Acerca de',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.bold)),
+                            Text(
+                              'Acerca del taller',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
                             const SizedBox(height: 8),
                             const Text(
                               'SensorTrack captura datos de sensores físicos '
                               'del dispositivo (Acelerómetro, Giroscopio y GPS) '
-                              'y los almacena en Supabase para su análisis.',
-                              style: TextStyle(color: Colors.black54),
+                              'y los almacena en Supabase para su análisis histórico.',
+                              style: TextStyle(color: Colors.black87),
                             ),
                             const SizedBox(height: 8),
-                            Text('Plataformas Móviles • 2026',
-                                style: TextStyle(
-                                    color: Colors.grey[400], fontSize: 12)),
+                            Text(
+                              'Plataformas Móviles • Ciclo Oct 2026 - Feb 2027',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -264,7 +257,7 @@ class _StatusCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: iconColor.withOpacity(0.12),
+          backgroundColor: iconColor.withValues(alpha: 0.12),
           child: Icon(icon, color: iconColor),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),

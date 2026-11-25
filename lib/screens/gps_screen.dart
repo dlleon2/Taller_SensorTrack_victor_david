@@ -28,7 +28,9 @@ class _GpsScreenState extends State<GpsScreen> {
 
   Future<void> _checkPermissions() async {
     LocationPermission perm = await Geolocator.checkPermission();
-    setState(() => _permissionStatus = _permLabel(perm));
+    if (mounted) {
+      setState(() => _permissionStatus = _permLabel(perm));
+    }
   }
 
   String _permLabel(LocationPermission p) {
@@ -47,14 +49,17 @@ class _GpsScreenState extends State<GpsScreen> {
   }
 
   Future<void> _requestAndGetLocation() async {
-    setState(() { _isLoading = true; _statusMessage = ''; });
+    setState(() {
+      _isLoading = true;
+      _statusMessage = '';
+    });
 
     try {
       // 1. Verificar si el servicio de ubicación está habilitado
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         setState(() {
-          _statusMessage = '❌ El servicio de ubicación está deshabilitado.';
+          _statusMessage = '❌ El servicio de ubicación GPS está deshabilitado en el dispositivo.';
           _isLoading = false;
         });
         return;
@@ -68,7 +73,7 @@ class _GpsScreenState extends State<GpsScreen> {
       if (permission == LocationPermission.deniedForever) {
         setState(() {
           _statusMessage =
-              '❌ Permiso denegado permanentemente. Ve a Ajustes del dispositivo.';
+              '❌ Permiso denegado permanentemente. Habilítalo en los Ajustes del dispositivo.';
           _isLoading = false;
         });
         return;
@@ -83,24 +88,26 @@ class _GpsScreenState extends State<GpsScreen> {
 
       setState(() => _permissionStatus = _permLabel(permission));
 
-      // 3. Obtener posición
+      // 3. Obtener posición actual
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
       );
 
-      setState(() {
-        _position = pos;
-        _statusMessage = '✅ Ubicación obtenida correctamente';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _position = pos;
+          _statusMessage = '✅ Ubicación obtenida correctamente';
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _statusMessage = '❌ Error: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _statusMessage = '❌ Error al obtener GPS: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -118,11 +125,15 @@ class _GpsScreenState extends State<GpsScreen> {
         accuracy: _position!.accuracy,
       );
       await _supabaseService.insertReading(reading);
-      setState(() => _statusMessage = '✅ Ubicación guardada en Supabase');
+      if (mounted) {
+        setState(() => _statusMessage = '✅ Ubicación guardada en Supabase');
+      }
     } catch (e) {
-      setState(() => _statusMessage = '❌ Error al guardar: $e');
+      if (mounted) {
+        setState(() => _statusMessage = '❌ Error al guardar: $e');
+      }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -137,15 +148,18 @@ class _GpsScreenState extends State<GpsScreen> {
         children: [
           // ── Permiso ─────────────────────────────────────
           Card(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: ListTile(
               leading: const CircleAvatar(
                 backgroundColor: Color(0x1A009688),
                 child: Icon(Icons.security, color: Colors.teal),
               ),
-              title: const Text('Permiso de ubicación',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              title: const Text(
+                'Permiso de ubicación',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               subtitle: Text(_permissionStatus),
               trailing: TextButton(
                 onPressed: _requestAndGetLocation,
@@ -158,24 +172,29 @@ class _GpsScreenState extends State<GpsScreen> {
 
           // ── Datos GPS ───────────────────────────────────
           Card(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             elevation: 2,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  const Row(
                     children: [
-                      const CircleAvatar(
+                      CircleAvatar(
                         backgroundColor: Color(0x1A009688),
                         child: Icon(Icons.gps_fixed, color: Colors.teal),
                       ),
-                      const SizedBox(width: 12),
-                      const Text('Coordenadas',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
+                      SizedBox(width: 12),
+                      Text(
+                        'Coordenadas',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   const Divider(height: 24),
@@ -231,16 +250,18 @@ class _GpsScreenState extends State<GpsScreen> {
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : const Icon(Icons.gps_fixed),
-                          label:
-                              Text(_isLoading ? 'Obteniendo...' : 'Obtener'),
+                          label: Text(_isLoading ? 'Obteniendo...' : 'Obtener'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.teal,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -255,7 +276,9 @@ class _GpsScreenState extends State<GpsScreen> {
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : const Icon(Icons.save_alt),
                           label: Text(_isSaving ? 'Guardando...' : 'Guardar'),
@@ -263,7 +286,8 @@ class _GpsScreenState extends State<GpsScreen> {
                             backgroundColor: Colors.blue[700],
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -299,7 +323,11 @@ class _GpsRow extends StatelessWidget {
   final String value;
   final IconData icon;
 
-  const _GpsRow({required this.label, required this.value, required this.icon});
+  const _GpsRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -309,9 +337,13 @@ class _GpsRow extends StatelessWidget {
         const SizedBox(width: 10),
         SizedBox(
           width: 90,
-          child: Text(label,
-              style: const TextStyle(
-                  color: Colors.black54, fontWeight: FontWeight.w500)),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
         Expanded(
           child: Text(

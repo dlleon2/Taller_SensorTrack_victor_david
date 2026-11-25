@@ -12,8 +12,7 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   final SupabaseService _supabaseService = SupabaseService();
-
-  Map<String, dynamic>? _stats;
+  Map<String, dynamic> _stats = {};
   bool _isLoading = false;
 
   @override
@@ -25,459 +24,492 @@ class _StatsScreenState extends State<StatsScreen> {
   Future<void> _loadStats() async {
     setState(() => _isLoading = true);
     try {
-      final stats = await _supabaseService.getStats();
-      setState(() => _stats = stats);
+      final data = await _supabaseService.getStats();
+      if (mounted) {
+        setState(() => _stats = data);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar estadísticas: $e')),
+          SnackBar(
+            content: Text('Error al cargar estadísticas: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final total = _stats['total'] ?? 0;
+    final accelCount = _stats['accelerometer'] ?? 0;
+    final gyroCount = _stats['gyroscope'] ?? 0;
+    final gpsCount = _stats['gps'] ?? 0;
+    final lastGps = _stats['lastGps'] as SensorReading?;
+    final minX = _stats['minX'] as double?;
+    final maxX = _stats['maxX'] as double?;
+    final recentAccel = (_stats['recentAccel'] as List<SensorReading>?) ?? [];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Estadísticas'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
             onPressed: _loadStats,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Actualizar',
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _stats == null
-              ? const Center(child: Text('No hay datos'))
-              : RefreshIndicator(
-                  onRefresh: _loadStats,
-                  child: ListView(
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                // ── Totales ────────────────────────────────
+                Row(
+                  children: [
+                    _StatBox(
+                      label: 'Total',
+                      value: '$total',
+                      color: Colors.indigo,
+                    ),
+                    const SizedBox(width: 8),
+                    _StatBox(
+                      label: 'Acelerómetro',
+                      value: '$accelCount',
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(width: 8),
+                    _StatBox(
+                      label: 'Giroscopio',
+                      value: '$gyroCount',
+                      color: Colors.purple,
+                    ),
+                    const SizedBox(width: 8),
+                    _StatBox(
+                      label: 'GPS',
+                      value: '$gpsCount',
+                      color: Colors.teal,
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // ── Min / Max Acelerómetro X ───────────────
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
                     padding: const EdgeInsets.all(16),
-                    children: [
-                      _SectionTitle('Resumen general'),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatCard(
-                              label: 'Total\nRegistros',
-                              value: '${_stats!['total']}',
-                              icon: Icons.storage,
-                              color: Colors.indigo,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _StatCard(
-                              label: 'Aceler.',
-                              value: '${_stats!['accelerometer']}',
-                              icon: Icons.speed,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatCard(
-                              label: 'Giroscopio',
-                              value: '${_stats!['gyroscope']}',
-                              icon: Icons.threesixty,
-                              color: Colors.purple,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _StatCard(
-                              label: 'GPS',
-                              value: '${_stats!['gps']}',
-                              icon: Icons.gps_fixed,
-                              color: Colors.teal,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      _SectionTitle('Distribución por sensor'),
-                      const SizedBox(height: 12),
-                      _PieChartWidget(stats: _stats!),
-                      const SizedBox(height: 24),
-                      if (_stats!['minX'] != null && _stats!['maxX'] != null) ...[
-                        _SectionTitle('Acelerómetro - Eje X'),
-                        const SizedBox(height: 12),
-                        Card(
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _MinMaxItem(
-                                  label: 'Mínimo',
-                                  value: (_stats!['minX'] as double)
-                                      .toStringAsFixed(3),
-                                  color: Colors.blue,
-                                ),
-                                Container(
-                                    height: 40, width: 1, color: Colors.black12),
-                                _MinMaxItem(
-                                  label: 'Máximo',
-                                  value: (_stats!['maxX'] as double)
-                                      .toStringAsFixed(3),
-                                  color: Colors.red,
-                                ),
-                              ],
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Acelerómetro — Eje X',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        _SectionTitle('Últimas lecturas - Acelerómetro X'),
                         const SizedBox(height: 12),
-                        _LineChartWidget(
-                          readings: (_stats!['recentAccel'] as List<SensorReading>)
-                              .reversed
-                              .toList(),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MinMaxTile(
+                                label: 'Mínimo',
+                                value: minX != null
+                                    ? minX.toStringAsFixed(3)
+                                    : '—',
+                                icon: Icons.arrow_downward,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _MinMaxTile(
+                                label: 'Máximo',
+                                value: maxX != null
+                                    ? maxX.toStringAsFixed(3)
+                                    : '—',
+                                icon: Icons.arrow_upward,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
-                      const SizedBox(height: 24),
-                      if (_stats!['lastGps'] != null) ...[
-                        _SectionTitle('Última ubicación GPS'),
-                        const SizedBox(height: 12),
-                        _GpsCard(reading: _stats!['lastGps'] as SensorReading),
-                      ],
-                      const SizedBox(height: 24),
-                    ],
+                    ),
                   ),
                 ),
+
+                const SizedBox(height: 16),
+
+                // ── Última ubicación GPS ───────────────────
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Última ubicación GPS',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (lastGps == null)
+                          const Text(
+                            'Sin registros GPS todavía.',
+                            style: TextStyle(color: Colors.black54),
+                          )
+                        else ...[
+                          _InfoRow(
+                            Icons.north,
+                            'Latitud',
+                            '${lastGps.latitude?.toStringAsFixed(6)}°',
+                          ),
+                          const SizedBox(height: 6),
+                          _InfoRow(
+                            Icons.east,
+                            'Longitud',
+                            '${lastGps.longitude?.toStringAsFixed(6)}°',
+                          ),
+                          const SizedBox(height: 6),
+                          _InfoRow(
+                            Icons.my_location,
+                            'Precisión',
+                            '${lastGps.accuracy?.toStringAsFixed(1)} m',
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Gráfica de Acelerómetro X ──────────────
+                if (recentAccel.isNotEmpty) ...[
+                  Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Evolución Acelerómetro (eje X)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const Text(
+                            'Últimas 20 mediciones',
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            height: 180,
+                            child: LineChart(
+                              LineChartData(
+                                gridData: FlGridData(
+                                  show: true,
+                                  drawVerticalLine: false,
+                                  getDrawingHorizontalLine: (_) => FlLine(
+                                    color: Colors.grey.withValues(alpha: 0.2),
+                                    strokeWidth: 1,
+                                  ),
+                                ),
+                                titlesData: FlTitlesData(
+                                  leftTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      reservedSize: 36,
+                                      getTitlesWidget: (v, _) => Text(
+                                        v.toStringAsFixed(1),
+                                        style: const TextStyle(fontSize: 10),
+                                      ),
+                                    ),
+                                  ),
+                                  bottomTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  topTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  rightTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                ),
+                                borderData: FlBorderData(show: false),
+                                lineBarsData: [
+                                  LineChartBarData(
+                                    spots: recentAccel
+                                        .reversed
+                                        .toList()
+                                        .asMap()
+                                        .entries
+                                        .map((e) => FlSpot(
+                                              e.key.toDouble(),
+                                              e.value.x ?? 0,
+                                            ))
+                                        .toList(),
+                                    isCurved: true,
+                                    color: Colors.blue,
+                                    barWidth: 2.5,
+                                    dotData: const FlDotData(show: false),
+                                    belowBarData: BarAreaData(
+                                      show: true,
+                                      color: Colors.blue.withValues(alpha: 0.1),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // ── Distribución por sensor (gráfico de barras) ──
+                if (total > 0)
+                  Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Distribución por sensor',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            height: 160,
+                            child: BarChart(
+                              BarChartData(
+                                alignment: BarChartAlignment.spaceAround,
+                                borderData: FlBorderData(show: false),
+                                titlesData: FlTitlesData(
+                                  leftTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  topTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  rightTitles: const AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  bottomTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      getTitlesWidget: (v, _) {
+                                        const labels = [
+                                          'Aceleró.',
+                                          'Girosco.',
+                                          'GPS',
+                                        ];
+                                        if (v.toInt() < labels.length) {
+                                          return Padding(
+                                            padding:
+                                                const EdgeInsets.only(top: 4),
+                                            child: Text(
+                                              labels[v.toInt()],
+                                              style:
+                                                  const TextStyle(fontSize: 11),
+                                            ),
+                                          );
+                                        }
+                                        return const SizedBox();
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                barGroups: [
+                                  BarChartGroupData(x: 0, barRods: [
+                                    BarChartRodData(
+                                      toY: accelCount.toDouble(),
+                                      color: Colors.blue,
+                                      width: 28,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ]),
+                                  BarChartGroupData(x: 1, barRods: [
+                                    BarChartRodData(
+                                      toY: gyroCount.toDouble(),
+                                      color: Colors.purple,
+                                      width: 28,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ]),
+                                  BarChartGroupData(x: 2, barRods: [
+                                    BarChartRodData(
+                                      toY: gpsCount.toDouble(),
+                                      color: Colors.teal,
+                                      width: 28,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ]),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
+// ─── Widgets auxiliares ───────────────────────────────────────────────────────
+
+class _StatBox extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatBox({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(text,
-        style: const TextStyle(
-            fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87));
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                color: color.withValues(alpha: 0.9),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
-class _StatCard extends StatelessWidget {
+class _MinMaxTile extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
   final Color color;
 
-  const _StatCard(
-      {required this.label,
-      required this.value,
-      required this.icon,
-      required this.color});
+  const _MinMaxTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            CircleAvatar(
-              backgroundColor: color.withOpacity(0.12),
-              radius: 24,
-              child: Icon(icon, color: color),
-            ),
-            const SizedBox(height: 10),
-            Text(value,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(color: color, fontSize: 11)),
+              Text(
+                value,
                 style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: color)),
-            const SizedBox(height: 4),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: Colors.black54)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PieChartWidget extends StatelessWidget {
-  final Map<String, dynamic> stats;
-  const _PieChartWidget({required this.stats});
-
-  @override
-  Widget build(BuildContext context) {
-    final accel = (stats['accelerometer'] as int).toDouble();
-    final gyro = (stats['gyroscope'] as int).toDouble();
-    final gps = (stats['gps'] as int).toDouble();
-    final total = accel + gyro + gps;
-
-    if (total == 0) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Center(child: Text('Sin datos para graficar')),
-        ),
-      );
-    }
-
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 180,
-              child: PieChart(
-                PieChartData(
-                  sections: [
-                    if (accel > 0)
-                      PieChartSectionData(
-                        value: accel,
-                        color: Colors.blue,
-                        title: '${(accel / total * 100).toStringAsFixed(0)}%',
-                        radius: 60,
-                        titleStyle: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13),
-                      ),
-                    if (gyro > 0)
-                      PieChartSectionData(
-                        value: gyro,
-                        color: Colors.purple,
-                        title: '${(gyro / total * 100).toStringAsFixed(0)}%',
-                        radius: 60,
-                        titleStyle: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13),
-                      ),
-                    if (gps > 0)
-                      PieChartSectionData(
-                        value: gps,
-                        color: Colors.teal,
-                        title: '${(gps / total * 100).toStringAsFixed(0)}%',
-                        radius: 60,
-                        titleStyle: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13),
-                      ),
-                  ],
-                  centerSpaceRadius: 30,
-                  sectionsSpace: 2,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: color,
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _Legend('Aceleróm.', Colors.blue),
-                const SizedBox(width: 16),
-                _Legend('Giroscop.', Colors.purple),
-                const SizedBox(width: 16),
-                _Legend('GPS', Colors.teal),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Legend extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _Legend(this.label, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
-    );
-  }
-}
-
-class _LineChartWidget extends StatelessWidget {
-  final List<SensorReading> readings;
-  const _LineChartWidget({required this.readings});
-
-  @override
-  Widget build(BuildContext context) {
-    if (readings.isEmpty) {
-      return const Card(
-        child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Center(child: Text('Sin datos de acelerómetro'))),
-      );
-    }
-
-    final spots = readings
-        .asMap()
-        .entries
-        .map((e) => FlSpot(e.key.toDouble(), e.value.x ?? 0.0))
-        .toList();
-
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 24, 24, 16),
-        child: SizedBox(
-          height: 180,
-          child: LineChart(
-            LineChartData(
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                horizontalInterval: 5,
-                getDrawingHorizontalLine: (_) =>
-                    FlLine(color: Colors.black12, strokeWidth: 1),
-              ),
-              titlesData: FlTitlesData(
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 36,
-                    getTitlesWidget: (v, _) => Text(
-                      v.toStringAsFixed(0),
-                      style: const TextStyle(fontSize: 10, color: Colors.black45),
-                    ),
-                  ),
-                ),
-                bottomTitles:
-                    AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles:
-                    AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles:
-                    AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              ),
-              borderData: FlBorderData(show: false),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: spots,
-                  isCurved: true,
-                  color: Colors.blue,
-                  barWidth: 2.5,
-                  dotData: FlDotData(show: spots.length <= 10),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    color: Colors.blue.withOpacity(0.1),
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _MinMaxItem extends StatelessWidget {
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
-  final Color color;
 
-  const _MinMaxItem(
-      {required this.label, required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13)),
-        const SizedBox(height: 4),
-        Text(value,
-            style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: color,
-                fontFamily: 'monospace')),
-        const Text('m/s²',
-            style: TextStyle(color: Colors.black38, fontSize: 11)),
-      ],
-    );
-  }
-}
-
-class _GpsCard extends StatelessWidget {
-  final SensorReading reading;
-  const _GpsCard({required this.reading});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.gps_fixed, color: Colors.teal),
-                SizedBox(width: 8),
-                Text('Ultima ubicacion registrada',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const Divider(height: 20),
-            _GpsRow('Latitud', '${reading.latitude?.toStringAsFixed(6)}°'),
-            const SizedBox(height: 6),
-            _GpsRow('Longitud', '${reading.longitude?.toStringAsFixed(6)}°'),
-            const SizedBox(height: 6),
-            _GpsRow('Precision', '${reading.accuracy?.toStringAsFixed(1)} m'),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GpsRow extends StatelessWidget {
-  final String l;
-  final String v;
-  const _GpsRow(this.l, this.v);
+  const _InfoRow(this.icon, this.label, this.value);
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
+        Icon(icon, size: 16, color: Colors.teal),
+        const SizedBox(width: 8),
         SizedBox(
-            width: 80,
-            child: Text(l, style: const TextStyle(color: Colors.black54))),
-        Text(v,
-            style: const TextStyle(
-                fontFamily: 'monospace', fontWeight: FontWeight.w600)),
+          width: 80,
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.black54, fontSize: 13),
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+        ),
       ],
     );
   }

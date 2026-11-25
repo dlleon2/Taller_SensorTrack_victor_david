@@ -24,10 +24,22 @@ class _SensorsScreenState extends State<SensorsScreen> {
   void initState() {
     super.initState();
     _sensorService.onAccelUpdate = (x, y, z) {
-      if (mounted) setState(() { _accelX = x; _accelY = y; _accelZ = z; });
+      if (mounted) {
+        setState(() {
+          _accelX = x;
+          _accelY = y;
+          _accelZ = z;
+        });
+      }
     };
     _sensorService.onGyroUpdate = (x, y, z) {
-      if (mounted) setState(() { _gyroX = x; _gyroY = y; _gyroZ = z; });
+      if (mounted) {
+        setState(() {
+          _gyroX = x;
+          _gyroY = y;
+          _gyroZ = z;
+        });
+      }
     };
   }
 
@@ -66,7 +78,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
     } catch (e) {
       _setStatus('❌ Error al guardar: $e');
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -84,7 +96,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
     } catch (e) {
       _setStatus('❌ Error al guardar: $e');
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -99,7 +111,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
             child: Switch(
               value: _isCapturing,
               onChanged: (_) => _toggleCapture(),
-              thumbColor: WidgetStateProperty.all(Colors.white),
+              thumbColor: const WidgetStatePropertyAll(Colors.white),
               trackColor: WidgetStateProperty.resolveWith(
                 (s) => s.contains(WidgetState.selected)
                     ? Colors.green
@@ -118,8 +130,8 @@ class _SensorsScreenState extends State<SensorsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: _isCapturing
-                  ? Colors.green.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.1),
+                  ? Colors.green.withValues(alpha: 0.1)
+                  : Colors.grey.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _isCapturing ? Colors.green : Colors.grey,
@@ -163,7 +175,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
           // ── Giroscopio ──────────────────────────────────
           _SensorCard(
             title: 'Giroscopio',
-            icon: Icons.360,
+            icon: Icons.threesixty,
             color: Colors.purple,
             unit: 'rad/s',
             x: _gyroX,
@@ -225,18 +237,22 @@ class _SensorCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: color.withOpacity(0.12),
+                  backgroundColor: color.withValues(alpha: 0.12),
                   child: Icon(icon, color: color),
                 ),
                 const SizedBox(width: 12),
                 Text(
                   title,
                   style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Spacer(),
-                Text(unit,
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                Text(
+                  unit,
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                ),
               ],
             ),
             const Divider(height: 24),
@@ -256,7 +272,8 @@ class _SensorCard extends StatelessWidget {
                   backgroundColor: color,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ),
@@ -272,7 +289,11 @@ class _AxisRow extends StatelessWidget {
   final double value;
   final Color color;
 
-  const _AxisRow({required this.label, required this.value, required this.color});
+  const _AxisRow({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -282,13 +303,18 @@ class _AxisRow extends StatelessWidget {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
+            color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(6),
           ),
           alignment: Alignment.center,
-          child: Text(label,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(

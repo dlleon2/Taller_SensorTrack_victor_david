@@ -1,45 +1,70 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/sensor_reading.dart';
 
 /// Servicio centralizado para todas las operaciones con Supabase
 class SupabaseService {
-  // Singleton
   static final SupabaseService _instance = SupabaseService._internal();
   factory SupabaseService() => _instance;
   SupabaseService._internal();
 
-  SupabaseClient get _client => Supabase.instance.client;
-
   static const String _table = 'sensor_readings';
 
-  // ─── INSERT ──────────────────────────────────────────────────────────────────
-
-  /// Inserta una lectura de sensor en la tabla de Supabase
-  Future<void> insertReading(SensorReading reading) async {
-    await _client.from(_table).insert(reading.toMap());
+  SupabaseClient? get _client {
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      return null;
+    }
   }
 
-  // ─── SELECT ──────────────────────────────────────────────────────────────────
+  /// Verifica si hay conexión activa con Supabase
+  Future<bool> checkConnection() async {
+    final client = _client;
+    if (client == null) return false;
+    try {
+      await client.from(_table).select('id').limit(1);
+      return true;
+    } catch (e) {
+      debugPrint('Error de conexion Supabase: $e');
+      return false;
+    }
+  }
 
-  /// Obtiene las últimas [limit] lecturas ordenadas por fecha descendente
-  Future<List<SensorReading>> getReadings({int limit = 50}) async {
-    final response = await _client
+  /// Inserta una nueva lectura en Supabase
+  Future<void> insertReading(SensorReading reading) async {
+    final client = _client;
+    if (client == null) {
+      throw Exception('Supabase no está configurado. Revisa lib/main.dart');
+    }
+    await client.from(_table).insert(reading.toJson());
+  }
+
+  /// Obtiene todas las lecturas ordenadas por fecha (más reciente primero)
+  Future<List<SensorReading>> getReadings({int limit = 100}) async {
+    final client = _client;
+    if (client == null) return [];
+
+    final response = await client
         .from(_table)
         .select()
         .order('recorded_at', ascending: false)
         .limit(limit);
 
     return (response as List)
-        .map((row) => SensorReading.fromMap(row as Map<String, dynamic>))
+        .map((json) => SensorReading.fromJson(json as Map<String, dynamic>))
         .toList();
   }
 
-  /// Obtiene las lecturas de un sensor específico
+  /// Obtiene lecturas filtradas por sensor
   Future<List<SensorReading>> getReadingsByType(
-      String sensorType, {
-      int limit = 50,
-    }) async {
-    final response = await _client
+    String sensorType, {
+    int limit = 100,
+  }) async {
+    final client = _client;
+    if (client == null) return [];
+
+    final response = await client
         .from(_table)
         .select()
         .eq('sensor_type', sensorType)
@@ -47,67 +72,57 @@ class SupabaseService {
         .limit(limit);
 
     return (response as List)
-        .map((row) => SensorReading.fromMap(row as Map<String, dynamic>))
+        .map((json) => SensorReading.fromJson(json as Map<String, dynamic>))
         .toList();
   }
 
-  // ─── DELETE ──────────────────────────────────────────────────────────────────
-
-  /// Elimina un registro por su UUID
+  /// Elimina un registro por ID
   Future<void> deleteReading(String id) async {
-    await _client.from(_table).delete().eq('id', id);
+    final client = _client;
+    if (client == null) return;
+    await client.from(_table).delete().eq('id', id);
   }
 
-  // ─── ESTADÍSTICAS ─────────────────────────────────────────────────────────────
-
-  /// Calcula estadísticas generales: conteos, min/max, última ubicación GPS
+  /// Obtiene estadísticas: total de registros, conteo por tipo y min/max
   Future<Map<String, dynamic>> getStats() async {
-    // 1. Obtener todos los registros (últimos 500)
     final all = await getReadings(limit: 500);
 
-    final accelList =
-        all.where((r) => r.sensorType == 'accelerometer').toList();
-    final gyroList =
-        all.where((r) => r.sensorType == 'gyroscope').toList();
-    final gpsList =
-        all.where((r) => r.sensorType == 'gps').toList();
+    if (all.isEmpty) {
+      return {
+        'total': 0,
+        'accelerometer': 0,
+        'gyroscope': 0,
+        'gps': 0,
+        'lastGps': null,
+        'minX': null,
+        'maxX': null,
+        'recentAccel': <SensorReading>[],
+      };
+    }
 
-    // Min/Max eje X del acelerómetro
+    final accel = all.where((r) => r.sensorType == 'accelerometer').toList();
+    final gyro = all.where((r) => r.sensorType == 'gyroscope').toList();
+    final gpsReadings = all.where((r) => r.sensorType == 'gps').toList();
+
     double? minX, maxX;
-    if (accelList.isNotEmpty) {
-      final xValues = accelList.map((r) => r.x ?? 0.0).toList();
+    if (accel.isNotEmpty) {
+      final xValues = accel.map((r) => r.x ?? 0.0).toList();
       xValues.sort();
       minX = xValues.first;
       maxX = xValues.last;
     }
 
-    // Última ubicación GPS
-    SensorReading? lastGps = gpsList.isNotEmpty ? gpsList.first : null;
-
-    // Últimas 20 lecturas del acelerómetro para la gráfica
-    final recentAccel = accelList.take(20).toList();
+    SensorReading? lastGps = gpsReadings.isNotEmpty ? gpsReadings.first : null;
 
     return {
       'total': all.length,
-      'accelerometer': accelList.length,
-      'gyroscope': gyroList.length,
-      'gps': gpsList.length,
+      'accelerometer': accel.length,
+      'gyroscope': gyro.length,
+      'gps': gpsReadings.length,
+      'lastGps': lastGps,
       'minX': minX,
       'maxX': maxX,
-      'lastGps': lastGps,
-      'recentAccel': recentAccel,
+      'recentAccel': accel.take(20).toList(),
     };
-  }
-
-  // ─── CONECTIVIDAD ─────────────────────────────────────────────────────────────
-
-  /// Verifica si Supabase responde correctamente (ping)
-  Future<bool> isConnected() async {
-    try {
-      await _client.from(_table).select('id').limit(1);
-      return true;
-    } catch (_) {
-      return false;
-    }
   }
 }

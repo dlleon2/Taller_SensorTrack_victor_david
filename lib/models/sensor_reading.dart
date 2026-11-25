@@ -34,10 +34,13 @@ class SensorReading {
       longitude: (map['longitude'] as num?)?.toDouble(),
       accuracy: (map['accuracy'] as num?)?.toDouble(),
       recordedAt: map['recorded_at'] != null
-          ? DateTime.parse(map['recorded_at'] as String)
+          ? DateTime.parse(map['recorded_at'] as String).toLocal()
           : null,
     );
   }
+
+  factory SensorReading.fromJson(Map<String, dynamic> json) =>
+      SensorReading.fromMap(json);
 
   /// Convertir a mapa para insertar en Supabase
   Map<String, dynamic> toMap() {
@@ -51,6 +54,8 @@ class SensorReading {
       if (accuracy != null) 'accuracy': accuracy,
     };
   }
+
+  Map<String, dynamic> toJson() => toMap();
 
   /// Etiqueta legible del tipo de sensor
   String get sensorLabel {
@@ -66,7 +71,6 @@ class SensorReading {
     }
   }
 
-  // Alias para compatibilidad
   String get displayTitle => sensorLabel;
 
   String get displayValues {
