@@ -3,27 +3,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/home_screen.dart';
 
 // =====================================================================
-//  CONFIGURACIÓN DE SUPABASE
-//  Reemplaza estos valores con los de tu proyecto en supabase.com
+//  CONFIGURACIÓN DE SUPABASE OFICIAL - SensorTrack
 // =====================================================================
-const String supabaseUrl = 'TU_SUPABASE_URL';
-const String supabaseAnonKey = 'TU_SUPABASE_ANON_KEY';
+const String supabaseUrl = 'https://dduruhbtcbbyvopeyeum.supabase.co';
+const String supabaseAnonKey = 'sb_publishable_i44kHwidceTBRpymdVl16A_ZaAGa6IA';
 // =====================================================================
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    if (supabaseUrl != 'TU_SUPABASE_URL' &&
-        supabaseAnonKey != 'TU_SUPABASE_ANON_KEY') {
-      await Supabase.initialize(
-        url: supabaseUrl,
-        publishableKey: supabaseAnonKey,
-      );
-    }
-  } catch (e) {
-    debugPrint('Supabase no inicializado todavía: $e');
-  }
+  await Supabase.initialize(
+    url: supabaseUrl,
+    publishableKey: supabaseAnonKey,
+  );
 
   runApp(const SensorTrackApp());
 }
