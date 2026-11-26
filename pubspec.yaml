@@ -14,7 +14,7 @@ dependencies:
   supabase_flutter: ^2.3.0
 
   # Sensores físicos
-  sensors_plus: ^4.0.2
+  sensors_plus: ^7.1.1
 
   # GPS / Ubicación
   geolocator: ^11.0.0
