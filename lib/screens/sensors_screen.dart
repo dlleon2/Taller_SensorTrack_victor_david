@@ -167,7 +167,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
             x: _accelX,
             y: _accelY,
             z: _accelZ,
-            onSave: _isSaving ? null : _saveAccelerometer,
+            onSave: (_isSaving || !_isCapturing) ? null : _saveAccelerometer,
           ),
 
           const SizedBox(height: 16),
@@ -181,7 +181,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
             x: _gyroX,
             y: _gyroY,
             z: _gyroZ,
-            onSave: _isSaving ? null : _saveGyroscope,
+            onSave: (_isSaving || !_isCapturing) ? null : _saveGyroscope,
           ),
 
           if (_statusMessage.isNotEmpty) ...[
